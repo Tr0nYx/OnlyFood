@@ -5,44 +5,34 @@ namespace App\Entity;
 use App\Repository\IngredientsRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 
-/**
- * @ORM\Entity(repositoryClass=IngredientsRepository::class)
- */
+#[ORM\Entity(repositoryClass: IngredientsRepository::class)]
+#[ORM\Table]
 class Ingredients
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private int $id;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $name;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private string $name;
 
-    /**
-     * @ORM\Column(type="integer", nullable=true)
-     * @Groups({"recipe_overview", "weekly_plan"})
-     */
-    private $quantity;
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    #[Groups(["recipe_overview", "weekly_plan"])]
+    private int $quantity;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"recipe_overview", "weekly_plan"})
-     */
-    private $unit;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "weekly_plan"])]
+    private string $unit;
 
-    /**
-     * @ORM\ManyToMany(targetEntity=Recipe::class, mappedBy="ingredients")
-     */
-    private $recipes;
+    #[ORM\ManyToMany(targetEntity: Recipe::class, mappedBy: 'ingredients')]
+    private Collection $recipes;
 
     public function __construct()
     {

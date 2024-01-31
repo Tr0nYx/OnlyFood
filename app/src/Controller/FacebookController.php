@@ -3,7 +3,6 @@
 namespace App\Controller;
 
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
-use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
@@ -11,10 +10,10 @@ use Symfony\Component\Routing\Annotation\Route;
 class FacebookController extends AbstractController
 {
     /**
-     *
-     *
-     * @Route("/connect/facebook", name="connect_facebook_start")
+     * @param ClientRegistry $clientRegistry
+     * @return \Symfony\Component\HttpFoundation\RedirectResponse
      */
+    #[Route(path: '/connect/facebook', name: 'connect_facebook_start')]
     public function connectAction(ClientRegistry $clientRegistry)
     {
         return $clientRegistry
@@ -23,10 +22,13 @@ class FacebookController extends AbstractController
     }
 
     /**
-     * @Route("/connect/facebook/check", name="connect_facebook_check")
+     * @param Request $request
+     * @param ClientRegistry $clientRegistry
+     * @return void
      */
+    #[Route(path: '/connect/facebook/check', name: 'connect_facebook_check')]
     public function connectCheckAction(Request $request, ClientRegistry $clientRegistry)
     {
-        
+
     }
 }

@@ -2,47 +2,50 @@
 
 namespace App\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\HttpFoundation\Request;
-use Doctrine\ORM\EntityManagerInterface;
-use App\Entity\Recipe;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Entity\IngredientQuantity;
 use App\Entity\Ingredients;
+use App\Entity\Recipe;
 use App\Entity\Tag;
 use App\Entity\User;
-use App\Entity\IngredientQuantity;
 use App\Entity\WeeklyPlan;
+use App\Repository\RecipeRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
 class RecipeController extends AbstractController
 {
     /**
-     * @var EntityManagerInterface
-     */
-    private $entityManager;
-
-    /**
      * @param EntityManagerInterface $entityManager
+     * @param SerializerInterface $serializer
      */
-    public function __construct(EntityManagerInterface $entityManager)
-    {
-        $this->entityManager = $entityManager;
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly SerializerInterface $serializer,
+        private readonly RecipeRepository $recipeRepository
+    ) {
     }
 
     /**
-     * @Route("/api/createRecipe", name="app_recipe_create")
+     * @param Request $request
+     * @return Response
+     * @throws \Exception
      */
-    public function createRecipe(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/createRecipe', name: 'app_recipe_create')]
+    public function createRecipe(Request $request)
     {
         $user = $this->getUser();
         $content = json_decode($request->get('recipe'), true);
         $userName = $this->getUser()->getUserIdentifier();
         $path = $request->files->get('file');
-       
+
         if ($content['id']) {
-            $recipe = $this->entityManager->getRepository(Recipe::class)->findOneBy(['id' => $content['id'], 'userId' => $user->getId()]);
+            $recipe = $this->recipeRepository->findOneBy(['id' => $content['id'], 'userId' => $user->getId()]);
             $recipe->setPortion($content['portion']);
             $recipe->setPrepTime($content['prepTime']);
 
@@ -56,26 +59,26 @@ class RecipeController extends AbstractController
             $recipe->setUserId($user);
         }
 
-        if($path) {
-            $fileName = $userName . '.' . $path->guessExtension();
+        if ($path) {
+            $fileName = $userName.'.'.$path->guessExtension();
 
             $recipe->setImageFile($path);
             $recipe->setImageName($fileName);
         }
 
-        if (!$content['name']) { 
+        if (!$content['name']) {
             throw new \Exception('Recipe name is required');
         } else {
             $recipe->setName($content['name']);
         }
 
-        if (!$content['method']) { 
+        if (!$content['method']) {
             throw new \Exception('Method is required');
         } else {
             $recipe->setMethod($content['method']);
         }
 
-        if (!$content['difficulty']) { 
+        if (!$content['difficulty']) {
             throw new \Exception('Difficulty is required');
         } else {
             $inUseDifficulty = ['easy', 'medium', 'hard'];
@@ -90,26 +93,39 @@ class RecipeController extends AbstractController
             return new Response('Tags are required', Response::HTTP_NOT_FOUND);
         }
 
-        $inUseTags = ['breakfast', 'lunch', 'dinner', 'cold food', 'warm food', 'no animal products', 'no fish & meat',
-        'no seafood','sweet', 'savoury', 'fast', 'cheap', 'high protein'];
+        $inUseTags = [
+            'breakfast',
+            'lunch',
+            'dinner',
+            'cold food',
+            'warm food',
+            'no animal products',
+            'no fish & meat',
+            'no seafood',
+            'sweet',
+            'savoury',
+            'fast',
+            'cheap',
+            'high protein',
+        ];
 
         foreach ($content['tags'] as $tag) {
-             $tagRepo = $this->entityManager->getRepository(Tag::class)->findOneBy(['name' => $tag]);
+            $tagRepo = $this->entityManager->getRepository(Tag::class)->findOneBy(['name' => $tag]);
 
-             if (in_array($tag['name'], $inUseTags)) {
-                 if (!$tagRepo) {
-                     $tagRepo = new Tag();
-                     $tagRepo->setName($tag['name']);
-                     $tagRepo->addRecipe($recipe);
-                 } else {
-                     $recipe->addTag($tagRepo);
-                 }
-                 $this->updateDatabase($tagRepo);
-             }
-         }
-        
+            if (in_array($tag['name'], $inUseTags)) {
+                if (!$tagRepo) {
+                    $tagRepo = new Tag();
+                    $tagRepo->setName($tag['name']);
+                    $tagRepo->addRecipe($recipe);
+                } else {
+                    $recipe->addTag($tagRepo);
+                }
+                $this->updateDatabase($tagRepo);
+            }
+        }
 
-        if (!$content['ingredients']) { 
+
+        if (!$content['ingredients']) {
             throw new \Exception('Ingredients are required');
         } else {
             foreach ($content['ingredients'] as $ingredient) {
@@ -127,24 +143,25 @@ class RecipeController extends AbstractController
             }
         }
 
-        $jsonContent = $serializer->serialize($recipe, 'json', ['groups' => 'recipe_overview']);
+        $jsonContent = $this->serializer->serialize($recipe, 'json', ['groups' => 'recipe_overview']);
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
     /**
-     * @Route("/api/recipe/{id}", name="app_recipe_show", methods={"GET"})
+     * @return JsonResponse|Response
      */
-    public function show(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/recipe/{id}', name: 'app_recipe_show', methods: 'GET')]
+    public function show(#[MapEntity] Recipe $recipe)
     {
-        $recipe = $this->entityManager->getRepository(Recipe::class)->findOneBy(['id' => $request->get('id')]);
+        $likedRecipe = [];
         $user = $this->getUser();
 
         if ($user) {
             $userId = $user->getId();
             $weeklyPlan = $this->entityManager->getRepository(WeeklyPlan::class)->findWeeklyPlanOfUser($user);
-            $weeklyPlanJson = $serializer->serialize($weeklyPlan, 'json', ['groups' => 'weekly_plan']);
-            $likedRecipe = $this->entityManager->getRepository(Recipe::class)->checkLikedRecipe($user, $recipe);
+            $weeklyPlanJson = $this->serializer->serialize($weeklyPlan, 'json', ['groups' => 'weekly_plan']);
+            $likedRecipe = $this->recipeRepository->checkLikedRecipe($user, $recipe);
 
         } else {
             $weeklyPlanJson = null;
@@ -153,8 +170,7 @@ class RecipeController extends AbstractController
 
         $isUserRecipe = false;
 
-
-        if($recipe){
+        if ($recipe) {
             $recipeUser = $recipe->getUserId();
 
             if ($recipeUser == $user) {
@@ -164,30 +180,31 @@ class RecipeController extends AbstractController
             return new Response('Recipe not found', Response::HTTP_NOT_FOUND);
         }
 
-        $recipeJson = $serializer->serialize($recipe, 'json', ['groups' => 'recipe_overview']);
+        $recipeJson = $this->serializer->serialize($recipe, 'json', ['groups' => 'recipe_overview']);
 
         $newResponse = array(
             'recipe' => $recipeJson,
             'likedRecipe' => $likedRecipe,
             'weeklyPlans' => $weeklyPlanJson,
             'isUserRecipe' => $isUserRecipe,
-            'isUserLoggedIn' => $userId
+            'isUserLoggedIn' => $userId,
         );
 
         return new JsonResponse($newResponse, Response::HTTP_OK);
     }
 
-    
     /**
-     * @Route("/api/recipe/{id}/like", name="app_recipe_like", methods={"POST"})
+     * @param Request $request
+     * @return Response
      */
-    public function likeRecipe(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/recipe/{id}/like', name: 'app_recipe_like', methods: 'POST')]
+    public function likeRecipe(Request $request)
     {
         $user = $this->getUser();
         $recipeId = $request->get('id');
         $userRepo = $this->entityManager->getRepository(User::class)->findOneBy(['id' => $user->getId()]);
-        $recipeRepo = $this->entityManager->getRepository(Recipe::class)->findOneBy(['id' => $recipeId]);
-        $likedRecipe = $this->entityManager->getRepository(Recipe::class)->checkLikedRecipe($user, $recipeRepo);
+        $recipeRepo = $this->recipeRepository->findOneBy(['id' => $recipeId]);
+        $likedRecipe = $this->recipeRepository->checkLikedRecipe($user, $recipeRepo);
 
         if ($likedRecipe) {
             $userRepo->removeLikedRecipe($recipeRepo);
@@ -203,19 +220,18 @@ class RecipeController extends AbstractController
     }
 
 
-
-    /** @param Request
+    /**
+     * @param Request $request
      * @return Response
-     * @Route("/api/recipe/{id}/cancelRecipe" , name="api_delete_recipe", methods={"DELETE"})
      */
-    public function cancelRecipe(Request $request, SerializerInterface $serializer): Response
+    #[Route(path: '/api/recipe/{id}/cancelRecipe', name: 'api_delete_recipe', methods: 'DELETE')]
+    public function cancelRecipe(Request $request): Response
     {
         $user = $this->getUser();
-        $recipe = $this->entityManager->getRepository(Recipe::class);
-        $recipeId = $recipe->findOneBy(['id' => $request->get('id'), 'userId' => $user->getId()]);
+        $recipeId = $this->recipeRepository->findOneBy(['id' => $request->get('id'), 'userId' => $user->getId()]);
         $ingredients = $this->entityManager->getRepository(Ingredients::class)->getRecipeId($recipeId);
         $weeklyPlans = $this->entityManager->getRepository(WeeklyPlan::class)->findBy(['recipe' => $recipeId]);
-    
+
         if ($recipeId) {
             if ($ingredients) {
                 foreach ($ingredients as $ingredient) {
@@ -233,21 +249,21 @@ class RecipeController extends AbstractController
             $this->entityManager->flush();
         }
 
-        $jsonContent = $serializer->serialize($recipeId, 'json', ['groups' => 'recipe_overview']);
+        $jsonContent = $this->serializer->serialize($recipeId, 'json', ['groups' => 'recipe_overview']);
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
 
-    private function setIngredients($ingredientEntity, $ingredient) 
+    private function setIngredients($ingredientEntity, $ingredient)
     {
-        if ($ingredient['name']) { 
+        if ($ingredient['name']) {
             $ingredientEntity->setName($ingredient['name']);
-        }  else {
+        } else {
             throw new \Exception('Ingredient Name is required');
         }
-        if ($ingredient['quantity']) { 
-            if(is_numeric($ingredient['quantity'])) {
+        if ($ingredient['quantity']) {
+            if (is_numeric($ingredient['quantity'])) {
                 $ingredientEntity->setQuantity($ingredient['quantity']);
             } else {
                 throw new \Exception('Quantity has to be an integer');

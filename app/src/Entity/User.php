@@ -5,122 +5,85 @@ namespace App\Entity;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\HttpFoundation\File\File;
-use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
-use Vich\UploaderBundle\Mapping\Annotation as Vich;
 use Symfony\Component\Validator\Constraints as Assert;
+use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
-/**
- * @Vich\Uploadable
- * @ORM\Entity(repositoryClass=UserRepository::class)
- * @UniqueEntity(fields={"username"}, message="There is already an account with this username")
- * @UniqueEntity(fields={"email"}, message="There is already an account with this email address")
- */
+
+#[Vich\Uploadable]
+#[ORM\Entity(repositoryClass: UserRepository::class)]
+#[UniqueEntity(fields: "username", message: "There is already an account with this username")]
+#[UniqueEntity(fields: "email", message: "There is already an account with this email address")]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     * @Groups({"account_overview", "recipe_overview", "weekly_plan", "shopping_list"})
-     */
-    private $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["account_overview", "recipe_overview", "weekly_plan", "shopping_list"])]
+    private int $id;
+
+    #[ORM\Column(type: Types::STRING, length: 255, unique: true)]
+    #[Groups(["account_overview", "recipe_overview", "weekly_plan", "shopping_list"])]
+    #[Assert\NotBlank(message: 'Please enter a Username')]
+    #[Assert\Type(type: 'alnum', message: 'Don\'t use special characters in your username')]
+    private string $username;
+
+    #[ORM\Column(type: Types::STRING, length: 255)]
+    #[Assert\NotBlank(message: 'Please enter a password')]
+    #[Assert\Length(min: 8, minMessage: 'Your password must be at least {{ limit }} characters long.')]
+    private string $password;
+
+    #[ORM\Column(type: Types::STRING, length: 255, unique: true)]
+    #[Groups(["account_overview"])]
+    #[Assert\NotBlank]
+    #[Assert\Email(message: 'The email {{ value }} is not a valid email.')]
+    private string $email;
+
+    #[Vich\UploadableField(mapping: "profile_picture", fileNameProperty: "profilePictureName", size: "imageSize")]
+    private ?File $profilePictureFile;
+
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    #[Groups(["account_overview", "recipe_overview"])]
+    private ?string $profilePictureName;
+
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private int $imageSize;
+
+    #[ORM\Column(type: Types::BOOLEAN, options: ['default' => true])]
+    #[Groups(["account_overview"])]
+    private bool $publicMode = true;
+
+    #[ORM\Column(type: Types::BOOLEAN, options: ['default' => true])]
+    #[Groups(["account_overview"])]
+    private bool $lightMode = true;
+
+    #[ORM\OneToMany(mappedBy: 'userId', targetEntity: Recipe::class, orphanRemoval: true)]
+    private Collection $recipes;
+
+    #[ORM\ManyToMany(targetEntity: Recipe::class, inversedBy: 'likedUsers', cascade: ['persist'])]
+    private Collection $likedRecipes;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: WeeklyPlan::class, orphanRemoval: true)]
+    private Collection $weeklyPlans;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: ShoppingList::class, orphanRemoval: true)]
+    private Collection $shoppingList;
+
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string $facebookId;
+
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string $googleId;
+
 
     /**
-     * @ORM\Column(type="string", length=255, unique=true)
-     * @Groups({"account_overview" , "recipe_overview", "weekly_plan", "shopping_list"})
-     * @Assert\NotBlank(message="Please enter a username")
-     * @Assert\Type(type={"alnum"} , message="Don't use special characters in your username")
-     * 
-     */
-    private $username;
-
-    /**
-     * @ORM\Column(type="string", length=255)
-     * @Assert\NotBlank(message="Please enter a password")
-     * @Assert\Length(min=8, minMessage="Your password must be at least {{ limit }} characters long.")
-     */
-    private $password;
-
-    /**
-     * @ORM\Column(type="string", length=255, unique=true)
-     * @Groups({"account_overview"})
-     * @Assert\NotBlank
-     * @Assert\Email(message = "The email '{{ value }}' is not a valid email.")
-     */
-    private $email;
-
-    /**
-     * NOTE: This is not a mapped field of entity metadata, just a simple property.
-     * @Vich\UploadableField(mapping="profile_picture", fileNameProperty="profilePictureName", size="imageSize")
-     * 
-     * @var File|null
-     */
-    private $profilePictureFile;
-
-    /**
-     * @ORM\Column(type="string", nullable=true)
-     * @Groups({"account_overview" , "recipe_overview"})
-     */
-    private $profilePictureName;
-
-    /**
-     * @ORM\Column(type="integer", nullable=true)
      *
-     * @var int|null
-     */
-    private $imageSize;
-
-    /**
-     * @ORM\Column(type="boolean", options={"default":"1"})
-     * @Groups({"account_overview"})
-     */
-    private $publicMode = true;
-
-    /**
-     * @ORM\Column(type="boolean", options={"default":"1"})
-     * @Groups({"account_overview"})
-     */
-    private $lightMode = true;
-
-    /**
-     * @ORM\OneToMany(targetEntity="App\Entity\Recipe", mappedBy="userId", orphanRemoval=true)
-     * 
-     */
-    private $recipes;
-
-    /**
-     * @ORM\ManyToMany(targetEntity=Recipe::class, inversedBy="likedUsers", cascade={"persist"})
-     */
-    private $likedRecipes;
-
-    /**
-     * @ORM\OneToMany(targetEntity=WeeklyPlan::class, mappedBy="user", orphanRemoval=true)
-     */
-    private $weeklyPlans;
-    
-    /**
-     * @ORM\OneToMany(targetEntity=ShoppingList::class, mappedBy="user", orphanRemoval=true)
-     */
-    private $shoppingList;
-
-    /**
-     * @ORM\Column(type="string", nullable=true)
-     */
-    private $facebookId;
-
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     */
-    private $googleId;
-
-
-    /**
-     * 
      * @param File|\Symfony\Component\HttpFoundation\File\UploadedFile|null $profilePictureFile
      */
     public function setProfilePictureFile(?File $profilePictureFile = null): void
@@ -141,7 +104,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     /**
      * @param string|null $profilePictureName
-     * 
+     *
      */
 
     public function setProfilePictureName(?string $profilePictureName): void
@@ -228,6 +191,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
     public function getUserIdentifier(): string
     {
         return $this->username;
@@ -257,7 +221,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         [$this->id, $this->username, $this->password] = $data;
     }
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->recipes = new ArrayCollection();
         $this->likedRecipes = new ArrayCollection();
         $this->weeklyPlans = new ArrayCollection();

@@ -2,79 +2,87 @@
 
 namespace App\Controller;
 
+use App\Entity\WeeklyPlan;
+use App\Repository\RecipeRepository;
+use App\Repository\WeeklyPlanRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
-use Doctrine\ORM\EntityManagerInterface;
-use App\Entity\WeeklyPlan;
-use App\Entity\Recipe;
-use Symfony\Component\Form\Extension\Core\Type\WeekType;
-use Symfony\Component\HttpFoundation\Request;
 
 class WeeklyPlanController extends AbstractController
 {
-    /**
-     * @var EntityManagerInterface
-     */
-    private $entityManager;
+    public function __construct(
+        readonly private WeeklyPlanRepository $weeklyPlanRepository,
+        readonly private RecipeRepository $recipeRepository,
+        readonly private SerializerInterface $serializer
+    ) {
+    }
 
     /**
-     * @param EntityManagerInterface $entityManager
+     * @return Response
      */
-    public function __construct(EntityManagerInterface $entityManager)
-    {
-        $this->entityManager = $entityManager;
-    }
-    /**
-     * @Route("/api/weekly-plan/", name="app_weekly_plan")
-     */
-    public function show(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/weekly-plan/', name: 'app_weekly_plan')]
+    public function show(): Response
     {
         $user = $this->getUser();
-        $weeklyPlan = $this->entityManager->getRepository(WeeklyPlan::class)->findBy(['user' => $user->getId()]);
-        $jsonContent = $serializer->serialize($weeklyPlan, 'json', ['groups' => 'weekly_plan']);
+        $weeklyPlan = $this->weeklyPlanRepository->findBy(['user' => $user->getId()]);
+        $jsonContent = $this->serializer->serialize($weeklyPlan, 'json', ['groups' => 'weekly_plan']);
+
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
     /**
-     * @Route("/api/weekly-plan/update/", name="app_update_weekly_plan")
+     * @param Request $request
+     * @return Response
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
      */
-    public function createWeeklyPlan(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/weekly-plan/update/', name: 'app_update_weekly_plan')]
+    public function createWeeklyPlan(Request $request): Response
     {
         $user = $this->getUser();
         $content = json_decode($request->getContent(), true);
-        $recipe = $this->entityManager->getRepository(Recipe::class)->find($content['recipeId']);
+        $recipe = $this->recipeRepository->find($content['recipeId']);
 
         if ($content['id']) {
-            $weeklyPlan = $this->entityManager->getRepository(WeeklyPlan::class)->findOneBy(['id' => $content['id'], 'user' => $user->getId()]);
+            $weeklyPlan = $this->weeklyPlanRepository->findOneBy(['id' => $content['id'], 'user' => $user->getId()]);
 
             $this->setWeeklyPlanContent($weeklyPlan, $content, $recipe);
-
-            $this->updateDatabase($weeklyPlan);
         } else {
             $weeklyPlan = new WeeklyPlan();
             $weeklyPlan->setUser($user);
 
             $this->setWeeklyPlanContent($weeklyPlan, $content, $recipe);
-
-            $this->updateDatabase($weeklyPlan);
         }
 
-        $jsonContent = $serializer->serialize($weeklyPlan, 'json', ['groups' => 'weekly_plan']);
+        $this->weeklyPlanRepository->add($weeklyPlan);
+
+        $jsonContent = $this->serializer->serialize($weeklyPlan, 'json', ['groups' => 'weekly_plan']);
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
-    private function setWeeklyPlanContent($weeklyPlan, $content, $recipe)
+    /**
+     * @param $weeklyPlan
+     * @param $content
+     * @param $recipe
+     * @return void
+     */
+    private function setWeeklyPlanContent($weeklyPlan, $content, $recipe): void
     {
 
         if (!$content['day']) {
-            return new Response('Day is not set', Response::HTTP_BAD_REQUEST);
+            new Response('Day is not set', Response::HTTP_BAD_REQUEST);
+
+            return;
         }
 
         if (!$content['meal']) {
-            return new Response('Meal is not set', Response::HTTP_BAD_REQUEST);
+            new Response('Meal is not set', Response::HTTP_BAD_REQUEST);
+
+            return;
         }
 
         $inWeekDay = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -87,70 +95,73 @@ class WeeklyPlanController extends AbstractController
 
         if (in_array($content['meal']['meal'], $inMeal)) {
             $weeklyPlan->setMeal($content['meal']['meal']);
-            $weeklyPlan->setMealSort($content['meal']['mealSort']); 
+            $weeklyPlan->setMealSort($content['meal']['mealSort']);
         }
 
         $weeklyPlan->setRecipe($recipe);
     }
 
     /**
-     * @Route("/api/weekly-plan/remove/", name="app_remove_weekly_plan")
+     * @param Request $request
+     * @return Response
+     * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\ORM\OptimisticLockException
      */
-    public function removeWeeklyPlan(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/weekly-plan/remove/', name: 'app_remove_weekly_plan')]
+    public function removeWeeklyPlan(Request $request): Response
     {
         $user = $this->getUser();
         $content = json_decode($request->getContent(), true);
 
         if ($content) {
-            $weeklyPlan = $this->entityManager->getRepository(WeeklyPlan::class)->findOneBy(['id' => $content['id'], 'user' => $user->getId()]);
-
-            $this->entityManager->remove($weeklyPlan);
-            $this->entityManager->flush();
+            $weeklyPlan = $this->weeklyPlanRepository->findOneBy(['id' => $content['id'], 'user' => $user->getId()]);
+            $this->weeklyPlanRepository->remove($weeklyPlan);
         }
-        
-        $weeklyPlans = $this->entityManager->getRepository(WeeklyPlan::class)->findBy(['user' => $user]);
 
-        $jsonContent = $serializer->serialize($weeklyPlans, 'json', ['groups' => 'weekly_plan']);
+        $weeklyPlans = $this->weeklyPlanRepository->findBy(['user' => $user]);
+
+        $jsonContent = $this->serializer->serialize($weeklyPlans, 'json', ['groups' => 'weekly_plan']);
 
         return new Response($jsonContent, Response::HTTP_OK);
-    }
-
-    public function updateDatabase($object)
-    {
-        $this->entityManager->persist($object);
-        $this->entityManager->flush();
     }
 
     /**
-     * @Route("/api/weekly-plan/showRecipes", name="app_weekly_plan_show_recipe")
+     * @param Request $request
+     * @return Response
      */
-    public function showRecipesToWeeklyPlan(Request $request, SerializerInterface $serializer)
+    #[Route(path: '/api/weekly-plan/showRecipes', name: 'app_weekly_plan_show_recipe')]
+    public function showRecipesToWeeklyPlan(Request $request): Response
     {
         $user = $this->getUser();
         $content = json_decode($request->getContent(), true);
-        $recipes = $this->entityManager->getRepository(Recipe::class)->getRecipesforWeeklyPlan($user);
+        $recipes = $this->recipeRepository->getRecipesforWeeklyPlan($user);
 
-        $jsonContent = $serializer->serialize($recipes, 'json', ['groups' => 'add_weekly_plan']);
+        $jsonContent = $this->serializer->serialize($recipes, 'json', ['groups' => 'add_weekly_plan']);
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
-    /** 
-     * @Route("/api/weekly-plan/todaysmealplan", name="app_weekly_plan_todays_meal_prep")
-    */
-    public function todaysMealPlan(Request $request, SerializerInterface $serializer)
+    /**
+     * @param Request $request
+     * @return Response
+     */
+    #[Route(path: '/api/weekly-plan/todaysmealplan', name: 'app_weekly_plan_todays_meal_prep')]
+    public function todaysMealPlan(Request $request): Response
     {
         $user = $this->getUser();
         $content = json_decode($request->getContent(), true);
         if ($content['date']) {
-            $todaysMealPlan = $this->entityManager->getRepository(WeeklyPlan::class)->getTodaysMealPlan($user, $content['date']);
+            $todaysMealPlan = $this->weeklyPlanRepository->getTodaysMealPlan(
+                $user,
+                $content['date']
+            );
 
-            $jsonContent = $serializer->serialize($todaysMealPlan, 'json', ['groups' => 'weekly_plan']);
+            $jsonContent = $this->serializer->serialize($todaysMealPlan, 'json', ['groups' => 'weekly_plan']);
         } else {
             $jsonContent = null;
         }
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
-    
+
 }

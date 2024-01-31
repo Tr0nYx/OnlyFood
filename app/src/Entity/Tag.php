@@ -5,32 +5,27 @@ namespace App\Entity;
 use App\Repository\TagRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 
-/**
- * @ORM\Entity(repositoryClass=TagRepository::class)
- */
+
+#[ORM\Entity(repositoryClass: TagRepository::class)]
+#[ORM\Table]
 class Tag
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private int $id;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $name;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private string $name;
 
-    /**
-     * @ORM\ManyToMany(targetEntity=Recipe::class, inversedBy="tags")
-     */
-    private $recipes;
+    #[ORM\ManyToMany(targetEntity: Recipe::class, inversedBy: 'tags')]
+    private Collection $recipes;
 
     public function __construct()
     {

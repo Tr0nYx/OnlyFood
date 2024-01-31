@@ -2,86 +2,80 @@
 
 namespace App\Controller;
 
-use Doctrine\ORM\EntityManagerInterface;
+use App\Entity\User;
+use App\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Serializer\SerializerInterface;
-use App\Entity\User;
 
 class AccountOverviewController extends AbstractController
 {
     /**
-     * @var EntityManagerInterface
+     * @param TokenStorageInterface $tokenStorage
+     * @param UserRepository $userRepository
+     * @param SerializerInterface $serializer
      */
-    private $entityManager;
+    public function __construct(
+        readonly private TokenStorageInterface $tokenStorage,
+        readonly private UserRepository $userRepository,
+        readonly private SerializerInterface $serializer
+    ) {
 
-    /**
-     * @var \Doctrine\Common\Persistence\ObjectRepository
-     */
-
-    private $tokenStorage;
-
-    /**
-     * @param EntityManagerInterface $entityManager
-     */
-    public function __construct(TokenStorageInterface $tokenStorage, EntityManagerInterface $entityManager)
-    {
-        $this->tokenStorage = $tokenStorage;
-        $this->entityManager = $entityManager;
     }
 
     /**
      * @return Response
-     * @Route("/api/account/details" , name="api_account_details" , methods={"GET"})
      */
-    public function getAccountDetails(SerializerInterface $serializer): Response
+    #[Route(path: '/api/account/details', name: 'api_account_details', methods: 'GET')]
+    public function getAccountDetails(): Response
     {
         $user = $this->getUser();
-
-        $jsonContent = $serializer->serialize($user, 'json', ['groups' => 'account_overview']);
+        $jsonContent = $this->serializer->serialize($user, 'json', ['groups' => 'account_overview']);
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
-    /** @param Request
+    /**
+     * @param Request $request
      * @return Response
-     * @Route("/api/account/uploadProfilePicture" , name="api_account_upload_profile_picture", methods={"POST"})
      */
-    public function uploadProfilePicture(Request $request, SerializerInterface $serializer): Response
+    #[Route(path: '/api/account/uploadProfilePicture', name: 'api_account_upload_profile_picture', methods: 'POST')]
+    public function uploadProfilePicture(Request $request): Response
     {
         $user = $this->getUser();
         $userName = $this->getUser()->getUserIdentifier();
         $path = $request->files->get('file');
-        $fileName = $userName . '.' . $path->guessExtension();
-        
-        if($path) {
+        $fileName = $userName.'.'.$path->guessExtension();
+
+        if ($path) {
             $user->setProfilePictureFile($path);
             $user->setProfilePictureName($fileName);
             $this->updateDatabase($user);
         }
 
-        $jsonContent = $serializer->serialize($user, 'json', ['groups' => 'account_overview']);
+        $jsonContent = $this->serializer->serialize($user, 'json', ['groups' => 'account_overview']);
 
         return new Response($jsonContent, Response::HTTP_OK);
     }
 
-    /** @param Request
+    /**
+     * @param Request $request
      * @return Response
-     * @Route("/api/account/changeUserInfo" , name="api_account_change_user_info")
+     * @throws \Exception
      */
-    public function getChangeUserinfo(Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager)
+    #[Route(path: '/api/account/changeUserInfo', name: 'api_account_change_user_info')]
+    public function getChangeUserinfo(Request $request)
     {
         $user = $this->getUser();
-
         $content = json_decode($request->getContent(), true);
 
         if ($content['username'] != $user->getUserIdentifier()) {
-            $checkUsername = $entityManager->getRepository(User::class)->findOneBy(['username' => $content['username']]);
+            $checkUsername = $this->userRepository->findOneBy(['username' => $content['username']]);
 
-            if ($checkUsername) { 
+            if ($checkUsername) {
                 throw new \Exception('Username already exist');
             } else {
                 $user->setUsername($content['username']);
@@ -93,20 +87,20 @@ class AccountOverviewController extends AbstractController
 
         $this->updateDatabase($user);
 
-        $jsonContent = $serializer->serialize($user, 'json', ['groups' => 'account_overview']);
+        $jsonContent = $this->serializer->serialize($user, 'json', ['groups' => 'account_overview']);
 
-        return new Response($jsonContent, Response::HTTP_OK);   
+        return new Response($jsonContent, Response::HTTP_OK);
     }
 
-    /** @param Request
+    /**
+     * @param Request $request
      * @return Response
-     * @Route("/api/account/deleteAccount" , name="api_account_delete_account" , methods={"DELETE"})
      */
+    #[Route(path: '/api/account/deleteAccount', name: 'api_account_delete_account', methods: 'DELETE')]
     public function deleteAccount(Request $request)
     {
         $user = $this->getUser();
-        $this->entityManager->remove($user);
-        $this->entityManager->flush();
+        $this->userRepository->remove($user);
 
         $request->getSession()->invalidate();
         $this->tokenStorage->setToken();
@@ -114,9 +108,8 @@ class AccountOverviewController extends AbstractController
         return new Response(Response::HTTP_OK);
     }
 
-    public function updateDatabase($object)
+    public function updateDatabase(User $user)
     {
-        $this->entityManager->persist($object);
-        $this->entityManager->flush();
+        $this->userRepository->add($user);
     }
 }

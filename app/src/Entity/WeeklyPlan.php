@@ -5,59 +5,46 @@ namespace App\Entity;
 use App\Repository\WeeklyPlanRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 
-/**
- * @ORM\Entity(repositoryClass=WeeklyPlanRepository::class)
- */
+
+#[ORM\Entity(repositoryClass: WeeklyPlanRepository::class)]
+#[ORM\Table]
 class WeeklyPlan
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     * @Groups({"weekly_plan", "recipe_overview"})
-     */
-    private $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["weekly_plan", "recipe_overview"])]
+    private int $id;
 
-    /**
-     * @ORM\Column(type="string", length=255)
-     * @Groups({"weekly_plan", "recipe_overview"})
-     */
-    private $weekday;
+    #[ORM\Column(type: Types::STRING, length: 255)]
+    #[Groups(["weekly_plan", "recipe_overview"])]
+    private string $weekday;
 
-    /**
-     * @ORM\Column(type="string", length=255)
-     * @Groups({"weekly_plan", "recipe_overview"})
-     */
-    private $meal;
+    #[ORM\Column(type: Types::STRING, length: 255)]
+    #[Groups(["weekly_plan", "recipe_overview"])]
+    private string $meal;
 
-    /**
-     * @ORM\ManyToOne(targetEntity=Recipe::class, inversedBy="weeklyPlans")
-     * @ORM\JoinColumn(nullable=false)
-     * @Groups({"weekly_plan"})
-     */
-    private $recipe;
+    #[ORM\ManyToOne(targetEntity: Recipe::class, inversedBy: 'weeklyPlans')]
+    #[ORM\JoinColumn(nullable: false)]
+    #[Groups(["weekly_plan"])]
+    private Collection $recipe;
 
-    /**
-     * @ORM\ManyToOne(targetEntity=User::class, inversedBy="weeklyPlans")
-     * @ORM\JoinColumn(nullable=false)
-     * @Groups({"weekly_plan"})
-     */
-    private $user;
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'weeklyPlans')]
+    #[ORM\JoinColumn(nullable: false)]
+    #[Groups(["weekly_plan"])]
+    private Collection $user;
 
-    /**
-     * @ORM\Column(type="integer")
-     * @Groups({"weekly_plan"})
-     */
-    private $weekDaySort;
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["weekly_plan"])]
+    private int $weekDaySort;
 
-    /**
-     * @ORM\Column(type="integer")
-     * @Groups({"weekly_plan"})
-     */
-    private $mealSort;
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["weekly_plan"])]
+    private int $mealSort;
 
     public function __construct()
     {

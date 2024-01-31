@@ -5,112 +5,77 @@ namespace App\Entity;
 use App\Repository\RecipeRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\HttpFoundation\File\File;
-use Vich\UploaderBundle\Mapping\Annotation as Vich;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Vich\UploaderBundle\Mapping\Annotation as Vich;
 
-/**
- * @ORM\Entity(repositoryClass=RecipeRepository::class)
- * @Vich\Uploadable
- */
+
+#[ORM\Entity(repositoryClass: RecipeRepository::class)]
+#[ORM\Table]
+#[Vich\Uploadable()]
 class Recipe
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan", "add_weekly_plan"})
-     */
-    private $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan", "add_weekly_plan"])]
+    private int $id;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan", "add_weekly_plan"})
-     */
-    private $name;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan", "add_weekly_plan"])]
+    private string $name;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $prepTime;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private string $prepTime;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"recipe_overview", "weekly_plan"})
-     */
-    private $difficulty;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "weekly_plan"])]
+    private string $difficulty;
 
-    /**
-     * @ORM\Column(type="integer", nullable=true, options={"default":"1"})
-     * @Groups({"recipe_overview"})
-     */
-    private $portion = '1';
+    #[ORM\Column(name: '`portion`', type: Types::INTEGER, nullable: true, options: ['default' => 1])]
+    #[Groups(["recipe_overview"])]
+    private int $portion = 1;
 
-    /**
-     * @ORM\Column(type="text", nullable=true)
-     * @Groups({"recipe_overview"})
-     */
-    private $method;
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(["recipe_overview"])]
+    private string $method;
 
-    /**
-     * @ORM\ManyToOne(targetEntity="App\Entity\User", inversedBy="recipes")
-     * @ORM\JoinColumn(nullable=false)
-     * @Groups({"recipe_overview"})
-     */
-    private $userId;
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'recipes')]
+    #[ORM\JoinColumn(nullable: false)]
+    #[Groups(["recipe_overview"])]
+    private User $userId;
 
-    /**
-     * @var File|null
-     *  @Vich\UploadableField(mapping="recipe_pictures", fileNameProperty="imageName", size="imageSize")
-     * @Groups({"recipe_overview"})
-     */
+    #[Vich\UploadableField(mapping: 'recipe_pictures', fileNameProperty: 'imageName', size: 'imageSize')]
+    #[Groups(["recipe_overview"])]
     private $imageFile;
 
-    /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @var int|null
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $imageName;
+    #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private string $imageName;
 
-    /**
-     * @ORM\Column(type="integer", nullable=true)
-     * @var int|null
-     */
-    private $imageSize;
+    #[ORM\Column(type: Types::INTEGER, nullable: true)]
+    private int $imageSize;
 
-    /**
-     * @ORM\Column(type="datetime", nullable=true)
-     *
-     * @var \DateTimeInterface|null
-     */
-    private $updatedAt;
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private \DateTimeImmutable $updatedAt;
 
-    /**
-     * @ORM\ManyToMany(targetEntity=Ingredients::class, inversedBy="recipes")
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $ingredients;
+    #[ORM\ManyToMany(targetEntity: Ingredients::class, inversedBy: 'recipes')]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private Collection $ingredients;
 
-    /**
-     * @ORM\ManyToMany(targetEntity=Tag::class, mappedBy="recipes")
-     * @Groups({"recipe_overview", "recipe_listing", "weekly_plan"})
-     */
-    private $tags;
+    #[ORM\ManyToMany(targetEntity: Tag::class, mappedBy: 'recipes')]
+    #[Groups(["recipe_overview", "recipe_listing", "weekly_plan"])]
+    private Collection $tags;
 
-    /**
-     * @ORM\ManyToMany(targetEntity=User::class, mappedBy="likedRecipes")
-     * @Groups({"recipe_overview", "recipe_listing"})
-     */
-    private $likedUsers;
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'likedRecipes')]
+    #[Groups(["recipe_overview", "recipe_listing"])]
+    private Collection $likedUsers;
 
-    /**
-     * @ORM\OneToMany(targetEntity=WeeklyPlan::class, mappedBy="recipe")
-     * 
-     */
-    private $weeklyPlans;
+    #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: WeeklyPlan::class)]
+    private Collection $weeklyPlans;
 
     public function __construct()
     {
@@ -209,7 +174,7 @@ class Recipe
     {
         $this->imageFile = $imageFile;
 
-        if (null !==$imageFile) {
+        if (null !== $imageFile) {
             $this->updatedAt = new \DateTimeImmutable();
         }
     }

@@ -2,25 +2,26 @@
 
 namespace App\Controller;
 
+use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 class DefaultController extends AbstractController
 {
     /**
-     * @Route("/dashboard", name="app_default" , methods={"GET"})
+     * @return array
      */
-    public function index(): Response
+    #[Route(path: '/dashboard', name: 'app_default', methods: 'GET')]
+    #[Template('base.html.twig')]
+    public function index(): array
     {
-        return $this->render('base.html.twig');
+        return [];
     }
 
-    /**
-     * @Route("/", name="app_landingpage" , methods={"GET"})
-     */
-    public function landingpage(): Response
+    #[Route(path: '/', name: 'app_landingpage', methods: 'GET')]
+    #[Template('landingpage/landingpage.html.twig')]
+    public function landingpage(): array
     {
-        return $this->render('landingpage/landingpage.html.twig');
+        return [];
     }
 }
