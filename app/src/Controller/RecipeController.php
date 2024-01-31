@@ -198,12 +198,11 @@ class RecipeController extends AbstractController
      * @return Response
      */
     #[Route(path: '/api/recipe/{id}/like', name: 'app_recipe_like', methods: 'POST')]
-    public function likeRecipe(Request $request)
+    public function likeRecipe(#[MapEntity] Recipe $recipe)
     {
         $user = $this->getUser();
-        $recipeId = $request->get('id');
         $userRepo = $this->entityManager->getRepository(User::class)->findOneBy(['id' => $user->getId()]);
-        $recipeRepo = $this->recipeRepository->findOneBy(['id' => $recipeId]);
+        $recipeRepo = $this->recipeRepository->findOneBy(['id' => $recipe->getId()]);
         $likedRecipe = $this->recipeRepository->checkLikedRecipe($user, $recipeRepo);
 
         if ($likedRecipe) {
@@ -225,10 +224,10 @@ class RecipeController extends AbstractController
      * @return Response
      */
     #[Route(path: '/api/recipe/{id}/cancelRecipe', name: 'api_delete_recipe', methods: 'DELETE')]
-    public function cancelRecipe(Request $request): Response
+    public function cancelRecipe(#[MapEntity] Recipe $recipe): Response
     {
         $user = $this->getUser();
-        $recipeId = $this->recipeRepository->findOneBy(['id' => $request->get('id'), 'userId' => $user->getId()]);
+        $recipeId = $this->recipeRepository->findOneBy(['id' => $recipe->getId(), 'userId' => $user->getId()]);
         $ingredients = $this->entityManager->getRepository(Ingredients::class)->getRecipeId($recipeId);
         $weeklyPlans = $this->entityManager->getRepository(WeeklyPlan::class)->findBy(['recipe' => $recipeId]);
 
